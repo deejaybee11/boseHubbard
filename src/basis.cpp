@@ -31,10 +31,12 @@
 #include <math.h>
 #include <omp.h>
 #include <algorithm>
+#include <vector>
 
 #include "mkl.h"
 
-Basis::Basis(SimulationData &simdata) {
+Basis::Basis(SimulationData &simdata) 
+{
 
 	this->basis_vectors = (double*)mkl_malloc(simdata.D*simdata.M*sizeof(double), 64);
 	this->tags = (double*)mkl_malloc(simdata.D*sizeof(double), 64);
@@ -43,7 +45,8 @@ Basis::Basis(SimulationData &simdata) {
 
 };	
 
-void Basis::ConstructBasis(SimulationData &simdata){
+void Basis::ConstructBasis(SimulationData &simdata)
+{
 
 	double *prev_basis;
 	double *new_basis;
@@ -71,7 +74,7 @@ void Basis::ConstructBasis(SimulationData &simdata){
 	myPointer = (double*)mkl_malloc(simdata.M*sizeof(double), 64);
 	double *myPointer2 = 0;
 	myPointer2 = (double*)mkl_malloc(simdata.M*sizeof(double), 64);
-	double *nonzero;
+	std::vector<double> nonzero;
 
 	int n_k;
 	//Outer loop sets the basis vector
@@ -84,21 +87,17 @@ void Basis::ConstructBasis(SimulationData &simdata){
 		cblas_dcopy(simdata.M, myPointer, 1, prev_basis, 1);
 		cblas_dcopy(simdata.M, myPointer, 1, new_basis, 1);
 
-		int z;
-		int count = 0;
-		nonzero = (double*)mkl_malloc((1 + count)*sizeof(double), 64);
-		for (z = 0; z < simdata.M-1; ++z) {
+		nonzero.resize(1);
+		for (int z = 0; z < simdata.M-1; ++z) {
 			if (prev_basis[z] != 0) {
-				mkl_realloc(nonzero, (1+count)*sizeof(double));
-				nonzero[count] = z;
-				count += 1;
+				nonzero.push_back(z);
 			}
 		}
 
 
 
 
-		n_k = *std::max_element(nonzero, nonzero+count);
+		n_k = *std::max_element(nonzero.begin(), nonzero.end());
 
 		if (n_k > 0) {
 			cblas_dcopy(n_k-1, prev_basis, 1, new_basis, 1);
@@ -115,33 +114,60 @@ void Basis::ConstructBasis(SimulationData &simdata){
 				new_basis[z] = 0;
 			}
 		}
-
-//		for (int j = 0; j < simdata.M; ++j) {
-//			std::cout << new_basis[j];
-//
-//		}
-//		std::cout << ";" << std::endl;
-
+		
 
 		cblas_dcopy(simdata.M, new_basis, 1, myPointer2, 1);
 
 	}
 
-
-
-	
-
-	for (int i = 0; i < simdata.D; ++i) {
-		for (int j = 0; j < simdata.M; ++j) {
-			index = i*simdata.M + j;
-			std::cout << basis_vectors[index];
-
-		}
-		std::cout << ";" << std::endl;
-	}
+	mkl_free(prev_basis);
+	mkl_free(new_basis);
+	mkl_free(myPointer);
+	mkl_free(myPointer2);
 
 };
 
+//Computes a unique hash value for each basis vector to allow
+//for sorting and easy referencing
+double Basis::CalculateVectorHash(SimulationData &simdata, double *vector)
+{
+
+	double tag = 0;
+	double Pi = 0;
+	for (int i = 0; i < simdata.M; ++i) {
+		Pi = 100*i + 3;
+		tag += sqrt(Pi)*vector[i];
+	}
+	return tag;
+}
+
+void Basis::HashVectors(SimulationData &simdata)
+{
+
+	int count = 0;
+	for (int i = 0; i < simdata.D*simdata.M; i += simdata.M) {
+		this->tags[count] = CalculateVectorHash(simdata, &this->basis_vectors[i]);
+		this->tags_sorted[count] = CalculateVectorHash(simdata, &this->basis_vectors[i]);
+
+		count++;
+	}
+}
+
+void Basis::SortBasisVectors(SimulationData &simdata)
+{
+
+	for (int i = 0; i < simdata.D; ++i) {
+		qsort(tags_sorted, simdata.D, sizeof(double), compare); 
+	}
+
+}
+
+int compare (const void * a, const void * b)
+{
+  if (*(double*)a > *(double*)b) return 1;
+  else if (*(double*)a < *(double*)b) return -1;
+  else return 0;
+}
 
 Basis::~Basis(){
 	mkl_free(basis_vectors);

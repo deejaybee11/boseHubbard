@@ -37,9 +37,12 @@
 
 int main(){
 
-	SimulationData simdata(3, 3, 1, 1);
+	SimulationData simdata(5, 5, 1, 1);
 	Basis basis(simdata);
 	basis.ConstructBasis(simdata);
+	basis.HashVectors(simdata);
+	basis.SortBasisVectors(simdata);
+
 
 
 	return 0;

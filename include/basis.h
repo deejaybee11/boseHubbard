@@ -40,6 +40,9 @@ public:
 	~Basis();
 
 	void ConstructBasis(SimulationData &simdata);
+	double CalculateVectorHash(SimulationData &simdata, double *vector);
+	void SortBasisVectors(SimulationData &simdata);
+	void HashVectors(SimulationData &simdata);
 
 	double *basis_vectors;
 	double *tags;
@@ -47,4 +50,6 @@ public:
 	int *indices;
 
 };
+
+int compare (const void * a, const void * b);
 
